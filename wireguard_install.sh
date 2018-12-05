@@ -2,19 +2,18 @@
 
 #判断系统
 if [ ! -e '/etc/redhat-release' ]; then
-echo "仅支持centos7"
+echo "仅支持CentOS/Oracle/Scientific/RHEL 7"
 exit
 fi
 if  [ -n "$(grep ' 6\.' /etc/redhat-release)" ] ;then
-echo "仅支持centos7"
+echo "仅支持CentOS/Oracle/Scientific/RHEL 7"
 exit
 fi
 
 
 
 #更新内核
-update_kernel(){
-
+update_kernel_unstable(){
     yum -y install epel-release
     sed -i "0,/enabled=0/s//enabled=1/" /etc/yum.repos.d/epel.repo
     yum remove -y kernel-devel
@@ -27,6 +26,42 @@ update_kernel(){
     wget https://elrepo.org/linux/kernel/el7/x86_64/RPMS/kernel-ml-devel-4.19.1-1.el7.elrepo.x86_64.rpm
     rpm -ivh kernel-ml-devel-4.19.1-1.el7.elrepo.x86_64.rpm
     yum -y --enablerepo=elrepo-kernel install kernel-ml-devel
+    read -p "需要重启VPS，再次执行脚本选择安装wireguard，是否现在重启 ? [Y/n] :" yn
+	[ -z "${yn}" ] && yn="y"
+	if [[ $yn == [Yy] ]]; then
+		echo -e "${Info} VPS 重启中..."
+		reboot
+	fi
+}
+
+update_kernel_official(){
+    yum -y install epel-release
+    sed -i "0,/enabled=0/s//enabled=1/" /etc/yum.repos.d/epel.repo
+    yum remove -y kernel-devel
+    wget http://mirror.centos.org/centos/7/virt/x86_64/xen-410/kernel-4.9.127-32.el7.x86_64.rpm
+    wget http://mirror.centos.org/centos/7/virt/x86_64/xen-410/kernel-devel-4.9.127-32.el7.x86_64.rpm
+    wget http://mirror.centos.org/centos/7/virt/x86_64/xen-410/kernel-headers-4.9.127-32.el7.x86_64.rpm
+    yum -y install *.rpm
+    sed -i "s/GRUB_DEFAULT=saved/GRUB_DEFAULT=0/" /etc/default/grub
+    grub2-mkconfig -o /boot/grub2/grub.cfg
+    read -p "需要重启VPS，再次执行脚本选择安装wireguard，是否现在重启 ? [Y/n] :" yn
+	[ -z "${yn}" ] && yn="y"
+	if [[ $yn == [Yy] ]]; then
+		echo -e "${Info} VPS 重启中..."
+		reboot
+	fi
+}
+
+update_kernel_oracle(){
+    yum -y install epel-release
+    sed -i "0,/enabled=0/s//enabled=1/" /etc/yum.repos.d/epel.repo
+    yum remove -y kernel-devel
+    wget https://linux.oracle.com/switch/centos2ol.sh 
+    sh centos2ol.sh
+    yum -y distro-sync
+    yum -y installl kernel-uek kernel-uek-devel kernel-uek-tools
+    sed -i "s/GRUB_DEFAULT=saved/GRUB_DEFAULT=0/" /etc/default/grub
+    grub2-mkconfig -o /boot/grub2/grub.cfg
     read -p "需要重启VPS，再次执行脚本选择安装wireguard，是否现在重启 ? [Y/n] :" yn
 	[ -z "${yn}" ] && yn="y"
 	if [[ $yn == [Yy] ]]; then
@@ -133,24 +168,32 @@ start_menu(){
     echo " 网站：www.atrandys.com"
     echo " Youtube：atrandys"
     echo "========================="
-    echo "1. 升级系统内核"
-    echo "2. 安装wireguard"
-    echo "3. 升级wireguard"
-    echo "4. 卸载wireguard"
+    echo "1. 升级系统内核(kernel-ml，不稳定)"
+    echo "2. 升级系统内核(官方Kernel 4.9)"
+    echo "3. 升级系统内核(Oracle UEK)"
+    echo "4. 安装wireguard"
+    echo "5. 升级wireguard"
+    echo "6. 卸载wireguard"
     echo "0. 退出脚本"
     echo
     read -p "请输入数字:" num
     case "$num" in
     	1)
-	update_kernel
+	update_kernel_unstable
 	;;
 	2)
-	wireguard_install
+	update_kernel_official
 	;;
 	3)
-	wireguard_update
+	update_kernel_oracle
 	;;
 	4)
+	wireguard_install
+	;;
+	5)
+	wireguard_update
+	;;
+	6)
 	wireguard_remove
 	;;
 	0)
